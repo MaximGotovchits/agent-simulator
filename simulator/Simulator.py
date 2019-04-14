@@ -44,7 +44,7 @@ class WorldMap:
                               str(len(positions_to_agents[str(current_pos)])) + " agents"
                 agent_num += 1
             self.current_time += 1
-        with open('data/result/resultUpd', 'a') as result_file: # result_n | n - time
+        with open('data/result/result', 'a') as result_file: # result_n | n - time
             result_file.write(str(total_result))
 
         # print str(self.pos_to_state)
