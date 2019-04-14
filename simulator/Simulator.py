@@ -14,16 +14,6 @@ class WorldMap:
     def __init__(self, agents):
         self.agents = agents
 
-    # def calculate_state(self, time):
-    #     return 1. - pow(self.map_damage_factor, self.current_time - time)
-    #
-    # def get_state(self, pos):
-    #     last_upd_time = 0
-    #     if self.pos_to_last_update_time.has_key(str(pos)):
-    #         last_upd_time = self.pos_to_last_update_time[str(pos)]
-    #     state = self.calculate_state(last_upd_time)
-    #     return state
-
     def start_emulation(self):
         whole_time = 20
         total_result = []
@@ -139,10 +129,6 @@ class Agent:
         self.current_pos = self.route['position'][self.current_step]
         return self.route['position'][self.current_step]
 
-
-def get_world_objects(path_to_world_objects):
-    objects = get_objects_from_file(path_to_world_objects)
-    return list(set(objects['Name'])) # Expecting that names are unique.
 
 if __name__ == "__main__":
     agent1 = Agent("data/agent1")
