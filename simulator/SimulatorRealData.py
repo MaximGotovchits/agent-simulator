@@ -1,5 +1,6 @@
 import csv
 import math
+import ast
 
 def binary_sort(sorted_list, key):
     start = 0
@@ -34,11 +35,36 @@ class WorldMap:
     x_min = 0
     y_min = 0
 
-    def __init__(self, agents, cell_num_x, cell_num_y):
+    car_size_x = 2
+    car_size_y = 2
+
+    # def __init__(self, agents, cell_num_x, cell_num_y):
+    #     self.agents = agents
+    #     self.cell_amnt_x = cell_num_x
+    #     self.cell_amnt_y = cell_num_y
+    #     self.set_cell_size()
+
+    def __init__(self, agents, cell_size_x, cell_size_y):
         self.agents = agents
-        self.cell_amnt_x = cell_num_x
-        self.cell_amnt_y = cell_num_y
-        self.set_cell_size()
+        self.cell_size_x = cell_size_x
+        self.cell_size_y = cell_size_y
+        self.set_cell_amount()
+
+    def set_cell_amount(self):
+        max_x = max(map(float, self.agents[0].get_observation()['x_gm']))
+        min_x = min(map(float, self.agents[0].get_observation()['x_gm']))
+
+        max_y = max(map(float, self.agents[0].get_observation()['y_gm']))
+        min_y = min(map(float, self.agents[0].get_observation()['y_gm']))
+
+        self.x_min = min_x
+        self.y_min = min_y
+        self.cell_amnt_x = int(float(max_x - min_x) / float(self.cell_size_x)) + 1
+        self.cell_amnt_y = int(float(max_y - min_y) / float(self.cell_size_y)) + 1
+        # self.cell_size_x = (max_x - min_x) / float(self.cell_amnt_x)
+        # self.cell_size_y = (max_y - min_y) / float(self.cell_amnt_y)
+
+        print "Cell amount: " + str(self.cell_amnt_x) + " x " + str(self.cell_amnt_y)
 
     def set_cell_size(self):
         max_x = max(map(float, self.agents[0].get_observation()['x_gm']))
@@ -123,7 +149,10 @@ class WorldMap:
                 # total_cars_num = float(len(set(agentObservation['id'])))
                 current_result_to_add = {}
                 for cur_cell in coords_to_vehicle_ids.keys():
-                    current_result_to_add[cur_cell] = str(1. - float(len(set(coords_to_vehicle_ids[cur_cell])) / 10.))
+                    if coords_to_vehicle_ids[cur_cell] != ['-1']:
+                        current_result_to_add[cur_cell] = str(max(0., 1. - float(len(set(coords_to_vehicle_ids[cur_cell])) / 2.)))
+                    else:
+                        current_result_to_add[cur_cell] = '-1.'
                 # add missing cells:
                 # for x in range(self.cell_amnt_x):
                 #     for y in range(self.cell_amnt_y):
@@ -139,18 +168,48 @@ class WorldMap:
                 current_observation_coord = [float(agentObservation['x_gm'][t]), float(agentObservation['y_gm'][t])]
                 current_agent_coord = self.get_agent_coord(agentRoute, long(agentObservation['msec'][t]))
                 if self.get_dst(current_observation_coord, current_agent_coord) < 40.:
-                    # print self.get_dst(current_observation_coord, current_agent_coord)
-                    current_cell = str(self.get_cell(float(agentObservation['x_gm'][t]), float(agentObservation['y_gm'][t]))) # get cell where this car is located
-                    if coords_to_vehicle_ids.has_key(current_cell): # Add this car to vehicle list of current cell if it was not there before
-                        if agentObservation['id'][t] not in coords_to_vehicle_ids[current_cell]:
-                            coords_to_vehicle_ids[current_cell].append(agentObservation['id'][t])
-                        # else:
-                        #     coords_to_vehicle_ids[current_cell].append(agentObservation['id'][t])
+                    current_observation_cell = str(self.get_cell(current_observation_coord[0], current_observation_coord[1])) # get cell where this car is located
+                    if coords_to_vehicle_ids.has_key(current_observation_cell): # Add this car to vehicle list of current cell if it was not there before
+                        if agentObservation['id'][t] not in coords_to_vehicle_ids[current_observation_cell]:
+                            coords_to_vehicle_ids[current_observation_cell].append(agentObservation['id'][t])
                     else:
-                        coords_to_vehicle_ids[current_cell] = [agentObservation['id'][t]]
+                        coords_to_vehicle_ids[current_observation_cell] = [agentObservation['id'][t]]
+                    # coords_to_vehicle_ids[current_agent_cell] = ['-1']
 
         with open('data/result/resultRealData', 'a') as result_file: # result_n | n - time
-            result_file.write(str(total_result))
+            # result_file.write(str(self.post_process_data((self.post_process_data(total_result)))))
+            result_file.write(str(self.post_process_data(total_result)))
+            # result_file.write(str(total_result))
+
+    def post_process_data(self, result_to_postprocess):
+        result = []
+        for current_period_result in result_to_postprocess:
+            print "Size before: " + str(len(current_period_result))
+            postprocessed_period = current_period_result.copy()
+            for current_cell in current_period_result.keys():
+                current_cell = ast.literal_eval(current_cell)
+                for i in range(current_cell[0] - 1, current_cell[0] + 2):
+                    for j in range(current_cell[1] - 1, current_cell[1] + 2):
+                        if i != current_cell[0] or j != current_cell[1]:
+                            if i >= 0 and j >= 0:
+                                if postprocessed_period.has_key(str([i, j])):
+                                    original_dens = 1. - ast.literal_eval(postprocessed_period[str([i, j])])
+                                    original_dens_orig_cell = 1. - ast.literal_eval(current_period_result[str(current_cell)])
+                                    result_dens = str(1. - (original_dens + original_dens_orig_cell) / 2.)
+                                    postprocessed_period[str([i, j])] = result_dens;
+
+                                    # postprocessed_period[str([i, j])] = str(min(1., ast.literal_eval(postprocessed_period[str([i, j])]) + ast.literal_eval(current_period_result[str(current_cell)]) + (1. - ast.literal_eval(current_period_result[str(current_cell)]))/2.))
+                                    # if postprocessed_period[str([i, j])] == ''
+                                else:
+                                    # x ->  x + (1 - x) / 2 == (1 + x)/2
+                                    original_dens_orig_cell = 1. - ast.literal_eval(current_period_result[str(current_cell)])
+                                    result_dens = str(1. - original_dens_orig_cell / 2.)
+                                    postprocessed_period[str([i, j])] = result_dens
+                                    # postprocessed_period[str([i, j])] = str(min(1., ast.literal_eval(current_period_result[str(current_cell)]) + (1. - ast.literal_eval(current_period_result[str(current_cell)]))/2.))
+
+            print "Size after: " + str(len(postprocessed_period))
+            result.append(postprocessed_period)
+        return result
 
 
     def init_world(self):
@@ -327,5 +386,6 @@ if __name__ == "__main__":
 
 
 
-    world = WorldMap([agent1], 45, 60)
-    world.start_emulation(5000)
+    # world = WorldMap([agent1], 45, 60)
+    world = WorldMap([agent1], 1., 1.)
+    world.start_emulation(30000)
